@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
  * shall be supplied in the entry field.
  * The DataEntryBox within the DataReferenceBox shall be either a DataEntryUrnBox or a DataEntryUrlBox.
  *
- * @see DataEntryUrlBox
+ * @see com.coremedia.iso.boxes.DataEntryUrlBox
  * @see com.coremedia.iso.boxes.DataEntryUrnBox
  */
 public class DataReferenceBox extends FullContainerBox {

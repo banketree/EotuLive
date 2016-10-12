@@ -14,7 +14,7 @@ public class DefaultRtmpPublisher implements RtmpPublisher {
 
     private RtmpConnection rtmpConnection;
 
-    public DefaultRtmpPublisher(EventHandler handler) {
+    public DefaultRtmpPublisher(RtmpPublisher.EventHandler handler) {
         rtmpConnection = new RtmpConnection(handler);
     }
 

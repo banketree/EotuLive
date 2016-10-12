@@ -1,10 +1,11 @@
 package com.test.eotulive;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.hardware.Camera;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -14,16 +15,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-
 import net.ossrs.yasea.SrsCameraView;
-
-import net.ossrs.yasea.SrsEncoder;
+import net.ossrs.yasea.SrsClient;
 import net.ossrs.yasea.SrsMp4Muxer;
 import net.ossrs.yasea.SrsPublisher;
-
 import net.ossrs.yasea.rtmp.RtmpPublisher;
-
-import java.util.Random;
 
 public class MainActivity extends Activity {
     private static final String TAG = "Yasea";
@@ -34,7 +30,7 @@ public class MainActivity extends Activity {
     Button btnSwitchEncoder = null;
 
     private SharedPreferences sp;
-    private String rtmpUrl = "rtmp://w.gslb.lecloud.com/live/2016101230000009e99";// "rtmp://0.0.0.0/" + getRandomAlphaString(3) + '/' + getRandomAlphaDigitString(5);
+    private String rtmpUrl = "rtmp://w.gslb.lecloud.com/live/201610123000000el99";
     private String recPath = Environment.getExternalStorageDirectory().getPath() + "/test.mp4";
 
     private SrsPublisher mPublisher;
@@ -48,8 +44,8 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         // restore data.
-        sp = getSharedPreferences("Yasea2", MODE_PRIVATE);
-        rtmpUrl = sp.getString("rtmpUrl", rtmpUrl);
+        sp = getSharedPreferences("Yasea", MODE_PRIVATE);
+//        rtmpUrl = sp.getString("rtmpUrl", rtmpUrl);
 
         // initialize url.
         final EditText efu = (EditText) findViewById(R.id.url);
@@ -59,13 +55,16 @@ public class MainActivity extends Activity {
         btnSwitchCamera = (Button) findViewById(R.id.swCam);
         btnRecord = (Button) findViewById(R.id.record);
         btnSwitchEncoder = (Button) findViewById(R.id.swEnc);
-        mSrsCameraView = (SrsCameraView) findViewById(R.id.preview);
-        mPublisher = new SrsPublisher(this);
-        mPublisher.setScreenOrientation(Configuration.ORIENTATION_LANDSCAPE);
-        mSrsCameraView.setPreviewResolution(mPublisher.getPreviewWidth(), mPublisher.getPreviewHeight());//大小
-        mSrsCameraView.setPreviewRotation(0);//旋转
-        mSrsCameraView.setPreviewCallback(mPublisher);
 
+        mSrsCameraView = (SrsCameraView) findViewById(R.id.preview);
+        mSrsCameraView.setPreviewRotation(0); //默认不旋转
+
+        mPublisher = new SrsPublisher();
+        mPublisher.setScreenOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        mPublisher.setOutputFace(true);
+
+        mSrsCameraView.setPreviewResolution(mPublisher.getPreviewWidth(), mPublisher.getPreviewHeight());
+        mSrsCameraView.setPreviewCallback(mPublisher);
 
         btnPublish.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -78,7 +77,7 @@ public class MainActivity extends Activity {
                     editor.apply();
 
                     mPublisher.setPreviewResolution(1280, 720);
-                    mPublisher.setOutputResolution(384, 640);
+                    mPublisher.setOutputResolution(640, 384);
                     mPublisher.setVideoSmoothMode();
                     mPublisher.startPublish(rtmpUrl);
 
@@ -104,12 +103,11 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 if (Camera.getNumberOfCameras() > 0) {
-                    int cameraId = (mSrsCameraView.getCamraId() + 1) % Camera.getNumberOfCameras();
+                    int id = (mSrsCameraView.getCamraId() + 1) % Camera.getNumberOfCameras();
 
-                    mSrsCameraView.setCameraId(cameraId);
+                    mSrsCameraView.setCameraId(id);
                     mSrsCameraView.stopCamera();
-
-                    mPublisher.setCameraFace(cameraId == 0);
+                    mPublisher.setOutputFace(id == 0);
 
                     try {
                         mSrsCameraView.startCamera();
@@ -172,12 +170,10 @@ public class MainActivity extends Activity {
 
             @Override
             public void onRtmpVideoStreaming(final String msg) {
-                Log.i("", msg);
             }
 
             @Override
             public void onRtmpAudioStreaming(final String msg) {
-                Log.i("", msg);
             }
 
             @Override
@@ -203,6 +199,26 @@ public class MainActivity extends Activity {
             @Override
             public void onRtmpOutputFps(final double fps) {
                 Log.i(TAG, String.format("Output Fps: %f", fps));
+            }
+
+            @Override
+            public void onRtmpVideoBitrate(final double bitrate) {
+                int rate = (int) bitrate;
+                if (rate / 1000 > 0) {
+                    Log.i(TAG, String.format("Video bitrate: %f kbps", bitrate / 1000));
+                } else {
+                    Log.i(TAG, String.format("Video bitrate: %d bps", rate));
+                }
+            }
+
+            @Override
+            public void onRtmpAudioBitrate(final double bitrate) {
+                int rate = (int) bitrate;
+                if (rate / 1000 > 0) {
+                    Log.i(TAG, String.format("Audio bitrate: %f kbps", bitrate / 1000));
+                } else {
+                    Log.i(TAG, String.format("Audio bitrate: %d bps", rate));
+                }
             }
         });
 
@@ -248,7 +264,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        mPublisher.setNetworkEventHandler(new SrsEncoder.EventHandler() {
+        mPublisher.setNetworkEventHandler(new SrsClient.EventHandler() {
             @Override
             public void onNetworkResume(final String msg) {
                 runOnUiThread(new Runnable() {
@@ -292,11 +308,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        final Button btn = (Button) findViewById(R.id.publish);
-        btn.setEnabled(true);
-        mPublisher.resumeRecord();
 
-        new Thread() {
+        Thread openThread = new Thread() {
             @Override
             public void run() {
                 try {
@@ -305,16 +318,17 @@ public class MainActivity extends Activity {
 
                     if (!mSrsCameraView.isOpened()) {
                         mSrsCameraView.startCamera();
-//                        EventBus.getDefault().post(
-//                                new LiveEvent(LiveEvent.Camera_Success));
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
-//                    EventBus.getDefault().post(
-//                            new LiveEvent(LiveEvent.Camera_Faild));
                 }
             }
-        }.start();
+        };
+        openThread.start();
+
+
+        final Button btn = (Button) findViewById(R.id.publish);
+        btn.setEnabled(true);
+        mPublisher.resumeRecord();
     }
 
     @Override
@@ -347,25 +361,12 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static String getRandomAlphaString(int length) {
-        String base = "abcdefghijklmnopqrstuvwxyz";
-        Random random = new Random();
-        StringBuffer sb = new StringBuffer();
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(base.length());
-            sb.append(base.charAt(number));
-        }
-        return sb.toString();
-    }
-
-    private static String getRandomAlphaDigitString(int length) {
-        String base = "abcdefghijklmnopqrstuvwxyz0123456789";
-        Random random = new Random();
-        StringBuffer sb = new StringBuffer();
-        for (int i = 0; i < length; i++) {
-            int number = random.nextInt(base.length());
-            sb.append(base.charAt(number));
-        }
-        return sb.toString();
+    public void switchMute() {
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int oldMode = audioManager.getMode();
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        boolean isMute = !audioManager.isMicrophoneMute();
+        audioManager.setMicrophoneMute(isMute);
+        audioManager.setMode(oldMode);
     }
 }

@@ -8,7 +8,7 @@ import android.hardware.Camera;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-
+import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,7 +20,7 @@ import java.util.List;
 public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback, Camera.PreviewCallback {
     private Camera mCamera;
 
-    private int mPreviewRotation = 0;//默认不旋转（0，90，180，270）
+    private int mPreviewRotation = 0;
     private int mCamId = Camera.CameraInfo.CAMERA_FACING_BACK;//默认后镜头Camera.CameraInfo.CAMERA_FACING_FRONT
     private PreviewCallback mPrevCb;
     private SnapshotCallback mSnapshotCallback;
@@ -58,6 +58,7 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
 
     public void setPreviewCallback(PreviewCallback cb) {
         mPrevCb = cb;
+        getHolder().addCallback(this);
     }
 
     public void setPreviewResolution(int width, int height) {
@@ -70,7 +71,7 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
             return;
         }
         if (mCamId > (Camera.getNumberOfCameras() - 1) || mCamId < 0) {
-            throw new Exception("Camera not fount");
+            throw new Exception("camera not suport");
         }
 
         mCamera = Camera.open(mCamId);
@@ -78,9 +79,9 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
         Camera.Parameters params = mCamera.getParameters();
         Camera.Size size = mCamera.new Size(previewWidth, previewHeight);
         if (!params.getSupportedPreviewSizes().contains(size) || !params.getSupportedPictureSizes().contains(size)) {
-//            Toast.makeText(getContext(), String.format("Unsupported resolution %dx%d", size.width, size.height), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), String.format("Unsupported resolution %dx%d", size.width, size.height), Toast.LENGTH_SHORT).show();
             stopCamera();
-            throw new Exception("Camera not supported");
+            throw new Exception("camera not suport");
         }
 
         mYuvPreviewFrame = new byte[previewWidth * previewHeight * 3 / 2];
@@ -140,11 +141,12 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
 
     public void stopCamera() {
         if (mCamera != null) {
-            mCamera.setPreviewCallback(null);// need to SET NULL CB before stop preview!!!
+            // need to SET NULL CB before stop preview!!!
+            mCamera.setPreviewCallback(null);
             mCamera.stopPreview();
             mCamera.release();
+            mCamera = null;
         }
-        mCamera = null;
     }
 
     @Override
@@ -199,7 +201,7 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
 
 
     public int getCamraId() {
-        return getCameraId();
+        return mCamId;
     }
 
     public boolean isOpened() {

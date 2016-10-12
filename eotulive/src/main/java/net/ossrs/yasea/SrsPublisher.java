@@ -16,7 +16,7 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
     private static final String TAG = "SrsPublisher";
 
     private AudioRecord mic;
-    private boolean aloop = false,mStarted =false;
+    private boolean aloop = false;
     private Thread aworker;
 
     private boolean sendAudioOnly = false;
@@ -26,18 +26,13 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
 
     private SrsFlvMuxer mFlvMuxer;
     private SrsMp4Muxer mMp4Muxer;
-    private SrsEncoder mEncoder = new SrsEncoder();
-    private Context mContext;
+    private SrsClient mEncoder = new SrsClient();
 
-    public SrsPublisher(Context context) {
-        mContext = context;
+    public SrsPublisher() {
     }
 
     @Override
     public void onGetYuvFrame(byte[] data) {
-        if(!mStarted)
-            return;
-
         // Calculate YUV sampling FPS
         if (videoFrameCount == 0) {
             lastTimeMillis = System.nanoTime() / 1000000;
@@ -81,9 +76,7 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
         mEncoder.stop();
     }
 
-
     public void startPublish(String rtmpUrl) {
-        mStarted = true;
         if (mFlvMuxer != null) {
             try {
                 mFlvMuxer.start(rtmpUrl);
@@ -98,7 +91,6 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
     }
 
     public void stopPublish() {
-        mStarted = false;
         if (mFlvMuxer != null) {
             stopEncode();
             mFlvMuxer.stop();
@@ -169,6 +161,10 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
         }
     }
 
+    public void setOutputFace(boolean backFace) {
+        mEncoder.setCameraFace(backFace);
+    }
+
     public void setScreenOrientation(int orientation) {
         mEncoder.setScreenOrientation(orientation);
     }
@@ -183,14 +179,6 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
 
     public void setSendAudioOnly(boolean flag) {
         sendAudioOnly = flag;
-    }
-
-    public void setCameraFace(boolean back) {
-        if (back) {
-            mEncoder.setCameraBackFace();
-        } else {
-            mEncoder.setCameraFrontFace();
-        }
     }
 
     private void startAudio() {
@@ -229,7 +217,6 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
         }
     }
 
-
     public void setPublishEventHandler(RtmpPublisher.EventHandler handler) {
         mFlvMuxer = new SrsFlvMuxer(handler);
         mEncoder.setFlvMuxer(mFlvMuxer);
@@ -240,16 +227,7 @@ public class SrsPublisher implements SrsCameraView.PreviewCallback {
         mEncoder.setMp4Muxer(mMp4Muxer);
     }
 
-    public void setNetworkEventHandler(SrsEncoder.EventHandler handler) {
+    public void setNetworkEventHandler(SrsClient.EventHandler handler) {
         mEncoder.setNetworkEventHandler(handler);
-    }
-
-    public void switchMute() {
-        AudioManager audioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-        int oldMode = audioManager.getMode();
-        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        boolean isMute = !audioManager.isMicrophoneMute();
-        audioManager.setMicrophoneMute(isMute);
-        audioManager.setMode(oldMode);
     }
 }

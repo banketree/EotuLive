@@ -94,10 +94,10 @@ public class SampleToChunkBox extends AbstractFullBox {
     public long[] blowup(int chunkCount) {
         long[] numberOfSamples = new long[chunkCount];
         int j = 0;
-        List<Entry> sampleToChunkEntries = new LinkedList<Entry>(entries);
+        List<SampleToChunkBox.Entry> sampleToChunkEntries = new LinkedList<Entry>(entries);
         Collections.reverse(sampleToChunkEntries);
         Iterator<Entry> iterator = sampleToChunkEntries.iterator();
-        Entry currentEntry = iterator.next();
+        SampleToChunkBox.Entry currentEntry = iterator.next();
 
         for (int i = numberOfSamples.length; i > 1; i--) {
             numberOfSamples[i - 1] = currentEntry.getSamplesPerChunk();
