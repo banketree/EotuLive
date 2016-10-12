@@ -2,12 +2,15 @@ package net.ossrs.yasea;
 
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.widget.Toast;
 
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
@@ -17,15 +20,20 @@ import java.util.List;
 public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback, Camera.PreviewCallback {
     private Camera mCamera;
 
-    private int mPreviewRotation = 90;
-    private int mCamId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+    private int mPreviewRotation = 0;//默认不旋转（0，90，180，270）
+    private int mCamId = Camera.CameraInfo.CAMERA_FACING_BACK;//默认后镜头Camera.CameraInfo.CAMERA_FACING_FRONT
     private PreviewCallback mPrevCb;
+    private SnapshotCallback mSnapshotCallback;
     private byte[] mYuvPreviewFrame;
     private int previewWidth;
     private int previewHeight;
 
     public interface PreviewCallback {
         void onGetYuvFrame(byte[] data);
+    }
+
+    public interface SnapshotCallback {
+        void onSnapshot(YuvImage yuvimage);
     }
 
     public SrsCameraView(Context context) {
@@ -56,13 +64,13 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
         previewWidth = width;
         previewHeight = height;
     }
-    
-    public boolean startCamera() {
+
+    public void startCamera() throws Exception {
         if (mCamera != null) {
-            return false;
+            return;
         }
         if (mCamId > (Camera.getNumberOfCameras() - 1) || mCamId < 0) {
-            return false;
+            throw new Exception("Camera not fount");
         }
 
         mCamera = Camera.open(mCamId);
@@ -70,9 +78,9 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
         Camera.Parameters params = mCamera.getParameters();
         Camera.Size size = mCamera.new Size(previewWidth, previewHeight);
         if (!params.getSupportedPreviewSizes().contains(size) || !params.getSupportedPictureSizes().contains(size)) {
-            Toast.makeText(getContext(), String.format("Unsupported resolution %dx%d", size.width, size.height), Toast.LENGTH_SHORT).show();
+//            Toast.makeText(getContext(), String.format("Unsupported resolution %dx%d", size.width, size.height), Toast.LENGTH_SHORT).show();
             stopCamera();
-            return false;
+            throw new Exception("Camera not supported");
         }
 
         mYuvPreviewFrame = new byte[previewWidth * previewHeight * 3 / 2];
@@ -93,9 +101,9 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
         List<String> supportedFocusModes = params.getSupportedFocusModes();
 
         if (!supportedFocusModes.isEmpty()) {
-            if(supportedFocusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)){
+            if (supportedFocusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
                 params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            }else{
+            } else {
                 params.setFocusMode(supportedFocusModes.get(0));
             }
         }
@@ -112,8 +120,6 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
             e.printStackTrace();
         }
         mCamera.startPreview();
-
-        return true;
     }
 
     private int[] findClosestFpsRange(int expectedFps, List<int[]> fpsRanges) {
@@ -134,17 +140,37 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
 
     public void stopCamera() {
         if (mCamera != null) {
-            // need to SET NULL CB before stop preview!!!
-            mCamera.setPreviewCallback(null);
+            mCamera.setPreviewCallback(null);// need to SET NULL CB before stop preview!!!
             mCamera.stopPreview();
             mCamera.release();
-            mCamera = null;
         }
+        mCamera = null;
     }
 
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
-        mPrevCb.onGetYuvFrame(data);
+        try {
+            if (mSnapshotCallback != null) {
+                Camera.Parameters parameters = camera.getParameters();
+                int width = parameters.getPreviewSize().width;
+                int height = parameters.getPreviewSize().height;
+                ByteArrayOutputStream outstream = new ByteArrayOutputStream();
+                Rect rect = new Rect(0, 0, width, height);
+                YuvImage yuvimage = new YuvImage(data, ImageFormat.NV21, width,
+                        height, null);
+                yuvimage.compressToJpeg(rect, 60, outstream);
+                mSnapshotCallback.onSnapshot(yuvimage);
+                mSnapshotCallback = null;
+            }
+        } catch (Exception e) {
+        }
+
+        try {
+            if (mPrevCb != null)
+                mPrevCb.onGetYuvFrame(data);
+        } catch (Exception e) {
+        }
+
         camera.addCallbackBuffer(mYuvPreviewFrame);
     }
 
@@ -165,5 +191,18 @@ public class SrsCameraView extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void surfaceDestroyed(SurfaceHolder arg0) {
+    }
+
+    public void snapshotCamera(SnapshotCallback callback) {
+        mSnapshotCallback = callback;
+    }
+
+
+    public int getCamraId() {
+        return getCameraId();
+    }
+
+    public boolean isOpened() {
+        return mCamera != null && mYuvPreviewFrame != null;
     }
 }

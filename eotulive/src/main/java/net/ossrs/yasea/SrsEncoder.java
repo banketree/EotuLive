@@ -18,22 +18,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Created by Leo Ma on 4/1/2016.
  */
 public class SrsEncoder {
-    private static final String TAG = "SrsEncoder";
+    private static final String TAG = SrsEncoder.class.getSimpleName();
 
     public static final String VCODEC = "video/avc";
     public static final String ACODEC = "audio/mp4a-latm";
     public static String x264Preset = "veryfast";
     public static int vPrevWidth = 1280;
     public static int vPrevHeight = 720;
-    public static int vPortraitWidth = 384;
-    public static int vPortraitHeight = 640;
-    public static int vLandscapeWidth = 640;
-    public static int vLandscapeHeight = 384;
-    public static int vOutWidth = 384;   // Note: the stride of resolution must be set as 16x for hard encoding with some chip like MTK
-    public static int vOutHeight = 640;  // Since Y component is quadruple size as U and V component, the stride must be set as 32x
+    public static int vPortraitWidth = 480;
+    public static int vPortraitHeight = 854;
+    public static int vLandscapeWidth = 854;
+    public static int vLandscapeHeight = 480;  //854*480
+    public static int vOutWidth = 480;   // Note: the stride of resolution must be set as 16x for hard encoding with some chip like MTK
+    public static int vOutHeight = 854;  // Since Y component is quadruple size as U and V component, the stride must be set as 32x
     public static int vBitrate = 500 * 1000;  // 500kbps
-    public static final int VFPS = 24;
-    public static final int VGOP = 48;
+    public static final int VFPS = 12;
+    public static final int VGOP = 36;
     public static final int ASAMPLERATE = 44100;
     public static int aChannelConfig = AudioFormat.CHANNEL_IN_STEREO;
     public static final int ABITRATE = 32 * 1000;  // 32kbps
@@ -62,6 +62,7 @@ public class SrsEncoder {
     private int videoMp4Track;
     private int audioFlvTrack;
     private int audioMp4Track;
+
 
     public interface EventHandler {
 
@@ -121,10 +122,10 @@ public class SrsEncoder {
         // the first picture on the player, a spare lower GOP value is suggested. But note that
         // lower GOP will produce more I frames and therefore more streaming data flow.
         // setEncoderGop(15);
-        setEncoderBitrate(vBitrate);
+         setEncoderBitrate(vBitrate);
         setEncoderPreset(x264Preset);
 
-        if (useSoftEncoder && !openSoftEncoder()) {
+        if (useSoftEncoder && ! openSoftEncoder()) {
             return false;
         }
 
@@ -407,18 +408,18 @@ public class SrsEncoder {
         if (mCameraFaceFront) {
             switch (mVideoColorFormat) {
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
-                    return NV21ToI420(data, vPrevWidth, vPrevHeight, true, 270);
+                    return  NV21ToI420(data, vPrevWidth, vPrevHeight, true, 270);
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-                    return NV21ToNV12(data, vPrevWidth, vPrevHeight, true, 270);
+                    return  NV21ToNV12(data, vPrevWidth, vPrevHeight, true, 270);
                 default:
                     throw new IllegalStateException("Unsupported color format!");
             }
         } else {
             switch (mVideoColorFormat) {
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
-                    return NV21ToI420(data, vPrevWidth, vPrevHeight, false, 90);
+                    return  NV21ToI420(data, vPrevWidth, vPrevHeight, false, 90);
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-                    return NV21ToNV12(data, vPrevWidth, vPrevHeight, false, 90);
+                    return  NV21ToNV12(data, vPrevWidth, vPrevHeight, false, 90);
                 default:
                     throw new IllegalStateException("Unsupported color format!");
             }
@@ -431,16 +432,16 @@ public class SrsEncoder {
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
                     return NV21ToI420(data, vPrevWidth, vPrevHeight, true, 0);
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-                    return NV21ToNV12(data, vPrevWidth, vPrevHeight, true, 0);
+                    return  NV21ToNV12(data, vPrevWidth, vPrevHeight, true, 0);
                 default:
                     throw new IllegalStateException("Unsupported color format!");
             }
         } else {
             switch (mVideoColorFormat) {
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
-                    return NV21ToI420(data, vPrevWidth, vPrevHeight, false, 0);
+                    return  NV21ToI420(data, vPrevWidth, vPrevHeight, false, 0);
                 case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-                    return NV21ToNV12(data, vPrevWidth, vPrevHeight, false, 0);
+                    return  NV21ToNV12(data, vPrevWidth, vPrevHeight, false, 0);
                 default:
                     throw new IllegalStateException("Unsupported color format!");
             }
@@ -541,19 +542,28 @@ public class SrsEncoder {
         return matchedColorFormat;
     }
 
-    private native void setEncoderResolution(int outWidth, int outHeight);
-    private native void setEncoderFps(int fps);
-    private native void setEncoderGop(int gop);
-    private native void setEncoderBitrate(int bitrate);
-    private native void setEncoderPreset(String preset);
-    private native byte[] NV21ToI420(byte[] yuvFrame, int width, int height, boolean flip, int rotate);
-    private native byte[] NV21ToNV12(byte[] yuvFrame, int width, int height, boolean flip, int rotate);
-    private native int NV21SoftEncode(byte[] yuvFrame, int width, int height, boolean flip, int rotate, long pts);
-    private native boolean openSoftEncoder();
-    private native void closeSoftEncoder();
 
     static {
-        System.loadLibrary("yuv");
-        System.loadLibrary("enc");
+        System.loadLibrary("encode");
     }
+
+    protected native void setEncoderResolution(int outWidth, int outHeight);
+
+    protected native void setEncoderFps(int fps);
+
+    protected native void setEncoderGop(int gop);
+
+    protected native void setEncoderBitrate(int bitrate);
+
+    protected native void setEncoderPreset(String preset);
+
+    protected native byte[] NV21ToI420(byte[] yuvFrame, int width, int height, boolean flip, int rotate);
+
+    protected native byte[] NV21ToNV12(byte[] yuvFrame, int width, int height, boolean flip, int rotate);
+
+    protected native int NV21SoftEncode(byte[] yuvFrame, int width, int height, boolean flip, int rotate, long pts);
+
+    protected native boolean openSoftEncoder();
+
+    protected native void closeSoftEncoder();
 }

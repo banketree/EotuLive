@@ -12,14 +12,12 @@ import java.io.IOException;
 /**
  * Created by Leo Ma on 2016/7/25.
  */
-public class SrsPublisher {
+public class SrsPublisher implements SrsCameraView.PreviewCallback {
     private static final String TAG = "SrsPublisher";
 
     private AudioRecord mic;
-    private boolean aloop = false;
+    private boolean aloop = false,mStarted =false;
     private Thread aworker;
-
-    private SrsCameraView mCameraView;
 
     private boolean sendAudioOnly = false;
     private int videoFrameCount;
@@ -29,30 +27,32 @@ public class SrsPublisher {
     private SrsFlvMuxer mFlvMuxer;
     private SrsMp4Muxer mMp4Muxer;
     private SrsEncoder mEncoder = new SrsEncoder();
+    private Context mContext;
 
-    public SrsPublisher(SrsCameraView view) {
-        mCameraView = view;
-        mCameraView.setPreviewResolution(mEncoder.getPreviewWidth(), mEncoder.getPreviewHeight());
-        mCameraView.setPreviewCallback(new SrsCameraView.PreviewCallback() {
-            @Override
-            public void onGetYuvFrame(byte[] data) {
-                // Calculate YUV sampling FPS
-                if (videoFrameCount == 0) {
-                    lastTimeMillis = System.nanoTime() / 1000000;
-                    videoFrameCount++;
-                } else {
-                    if (++videoFrameCount >= 48) {
-                        long diffTimeMillis = System.nanoTime() / 1000000 - lastTimeMillis;
-                        mSamplingFps = (double) videoFrameCount * 1000 / diffTimeMillis;
-                        videoFrameCount = 0;
-                    }
-                }
+    public SrsPublisher(Context context) {
+        mContext = context;
+    }
 
-                if (!sendAudioOnly) {
-                    mEncoder.onGetYuvFrame(data);
-                }
+    @Override
+    public void onGetYuvFrame(byte[] data) {
+        if(!mStarted)
+            return;
+
+        // Calculate YUV sampling FPS
+        if (videoFrameCount == 0) {
+            lastTimeMillis = System.nanoTime() / 1000000;
+            videoFrameCount++;
+        } else {
+            if (++videoFrameCount >= 48) {
+                long diffTimeMillis = System.nanoTime() / 1000000 - lastTimeMillis;
+                mSamplingFps = (double) videoFrameCount * 1000 / diffTimeMillis;
+                videoFrameCount = 0;
             }
-        });
+        }
+
+        if (!sendAudioOnly) {
+            mEncoder.onGetYuvFrame(data);
+        }
     }
 
     public void startEncode() {
@@ -62,11 +62,6 @@ public class SrsPublisher {
 
         mic = mEncoder.chooseAudioRecord();
         if (mic == null) {
-            return;
-        }
-
-        if (!mCameraView.startCamera()) {
-            mEncoder.stop();
             return;
         }
 
@@ -83,11 +78,12 @@ public class SrsPublisher {
 
     public void stopEncode() {
         stopAudio();
-        mCameraView.stopCamera();
         mEncoder.stop();
     }
 
+
     public void startPublish(String rtmpUrl) {
+        mStarted = true;
         if (mFlvMuxer != null) {
             try {
                 mFlvMuxer.start(rtmpUrl);
@@ -102,6 +98,7 @@ public class SrsPublisher {
     }
 
     public void stopPublish() {
+        mStarted = false;
         if (mFlvMuxer != null) {
             stopEncode();
             mFlvMuxer.stop();
@@ -160,10 +157,6 @@ public class SrsPublisher {
         return mSamplingFps;
     }
 
-    public int getCamraId() {
-        return mCameraView.getCameraId();
-    }
-
     public void setPreviewResolution(int width, int height) {
         mEncoder.setPreviewResolution(width, height);
     }
@@ -180,10 +173,6 @@ public class SrsPublisher {
         mEncoder.setScreenOrientation(orientation);
     }
 
-    public void setPreviewRotation(int rotation) {
-        mCameraView.setPreviewRotation(rotation);
-    }
-
     public void setVideoHDMode() {
         mEncoder.setVideoHDMode();
     }
@@ -194,17 +183,14 @@ public class SrsPublisher {
 
     public void setSendAudioOnly(boolean flag) {
         sendAudioOnly = flag;
-    }    
+    }
 
-    public void switchCameraFace(int id) {
-        mCameraView.setCameraId(id);
-        mCameraView.stopCamera();
-        if (id == 0) {
+    public void setCameraFace(boolean back) {
+        if (back) {
             mEncoder.setCameraBackFace();
         } else {
             mEncoder.setCameraFrontFace();
         }
-        mCameraView.startCamera();
     }
 
     private void startAudio() {
@@ -243,14 +229,6 @@ public class SrsPublisher {
         }
     }
 
-    public void switchMute() {
-        AudioManager audioManager = (AudioManager) mCameraView.getContext().getSystemService(Context.AUDIO_SERVICE);
-        int oldMode = audioManager.getMode();
-        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        boolean isMute = !audioManager.isMicrophoneMute();
-        audioManager.setMicrophoneMute(isMute);
-        audioManager.setMode(oldMode);
-    }
 
     public void setPublishEventHandler(RtmpPublisher.EventHandler handler) {
         mFlvMuxer = new SrsFlvMuxer(handler);
@@ -264,5 +242,14 @@ public class SrsPublisher {
 
     public void setNetworkEventHandler(SrsEncoder.EventHandler handler) {
         mEncoder.setNetworkEventHandler(handler);
+    }
+
+    public void switchMute() {
+        AudioManager audioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        int oldMode = audioManager.getMode();
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        boolean isMute = !audioManager.isMicrophoneMute();
+        audioManager.setMicrophoneMute(isMute);
+        audioManager.setMode(oldMode);
     }
 }

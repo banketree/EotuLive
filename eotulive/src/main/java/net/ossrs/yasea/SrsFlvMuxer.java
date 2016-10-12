@@ -383,7 +383,7 @@ public class SrsFlvMuxer {
 
     /**
      * the aac profile, for ADTS(HLS/TS)
-     * @see https://github.com/simple-rtmp-server/srs/issues/310
+     * @see //github.com/simple-rtmp-server/srs/issues/310
      */
     class SrsAacProfile
     {
