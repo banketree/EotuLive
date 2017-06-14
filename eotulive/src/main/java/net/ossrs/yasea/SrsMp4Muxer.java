@@ -122,7 +122,11 @@ public class SrsMp4Muxer {
 
         void onRecordFinished(String msg);
     }
-    
+
+    public boolean isVideoRecordEnable() {
+        return !spsList.isEmpty() && !ppsList.isEmpty();
+    }
+
     /**
      * start recording.
      */
@@ -196,7 +200,7 @@ public class SrsMp4Muxer {
         aacSpecConfig = false;
         frameCache.clear();
 
-		if (worker != null) {
+        if (worker != null) {
             try {
                 worker.join();
             } catch (InterruptedException e) {
@@ -250,8 +254,7 @@ public class SrsMp4Muxer {
      * Table 7-1 – NAL unit type codes, syntax element categories, and NAL unit type classes
      * H.264-AVC-ISO_IEC_14496-10-2012.pdf, page 83.
      */
-    class SrsAvcNaluType
-    {
+    class SrsAvcNaluType {
         // Unspecified
         public final static int Reserved = 0;
 

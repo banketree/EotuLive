@@ -30,7 +30,7 @@ public class MainActivity extends Activity {
     Button btnSwitchEncoder = null;
 
     private SharedPreferences sp;
-    private String rtmpUrl = "rtmp://w.gslb.lecloud.com/live/201610123000000el99";
+    private String rtmpUrl = "rtmp://192.168.1.108/single/201610123000001wg99?uid=109&token=a8bbb32648175fb4f0373755f88f3001";
     private String recPath = Environment.getExternalStorageDirectory().getPath() + "/test.mp4";
 
     private SrsPublisher mPublisher;
@@ -80,7 +80,6 @@ public class MainActivity extends Activity {
                     mPublisher.setOutputResolution(640, 384);
                     mPublisher.setVideoSmoothMode();
                     mPublisher.startPublish(rtmpUrl);
-
                     if (btnSwitchEncoder.getText().toString().contentEquals("soft enc")) {
                         Toast.makeText(getApplicationContext(), "Use hard encoder", Toast.LENGTH_SHORT).show();
                     } else {

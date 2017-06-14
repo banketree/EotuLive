@@ -1,7 +1,5 @@
 package net.ossrs.yasea;
 
-import android.content.Context;
-import android.media.AudioManager;
 import android.media.AudioRecord;
 
 import net.ossrs.yasea.rtmp.RtmpPublisher;
